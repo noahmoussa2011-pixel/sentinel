@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentinel — Linux System Monitor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d0d0d;
+      --surface: #141414;
+      --border:  #222222;
+      --blue:    #0055ff;
+      --blue-dim:#003dbb;
+      --text:    #e2e2e2;
+      --muted:   #555555;
+      --mono:    'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+      --sans:    -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(13,13,13,0.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 40px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-logo {
+      font-family: var(--mono);
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.5px;
+    }
+
+    .nav-version {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      background: #1a1a1a;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 7px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 28px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 96px 40px 72px;
+    }
+
+    .hero-tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--blue);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: clamp(36px, 6vw, 58px);
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1.1;
+      letter-spacing: -1px;
+      margin-bottom: 20px;
+    }
+
+    .hero-desc {
+      font-size: 17px;
+      color: #888888;
+      max-width: 560px;
+      line-height: 1.7;
+      margin-bottom: 36px;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 11px 24px;
+      border-radius: 8px;
+      transition: background 0.15s;
+    }
+
+    .btn-primary:hover {
+      background: var(--blue-dim);
+      text-decoration: none;
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 500;
+      padding: 11px 20px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .btn-secondary:hover {
+      border-color: #444;
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .install-hint {
+      margin-top: 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .install-hint code {
+      color: #aaaaaa;
+      background: #1a1a1a;
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    /* ── Screenshot carousel ── */
+    .screenshots {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: #0a0a0a;
+      padding: 64px 0;
+      overflow: hidden;
+    }
+
+    .screenshots-label {
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+    }
+
+    .screenshot-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      padding: 0 20px;
+    }
+
+    .tab-btn {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      background: #141414;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .tab-btn:hover, .tab-btn.active {
+      color: #fff;
+      border-color: var(--blue);
+      background: #0d1a33;
+    }
+
+    .screenshot-wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 0 40px;
+    }
+
+    .screenshot-img {
+      display: none;
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+    }
+
+    .screenshot-img.active { display: block; }
+
+    /* ── Install section ── */
+    .install {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 80px 40px;
+    }
+
+    .section-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--blue);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 10px;
+      letter-spacing: -0.5px;
+    }
+
+    .section-desc {
+      color: var(--muted);
+      margin-bottom: 32px;
+      max-width: 520px;
+    }
+
+    .install-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+
+    .step-num {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--blue);
+      font-weight: 700;
+      min-width: 24px;
+      margin-top: 1px;
+    }
+
+    .step-body { flex: 1; }
+
+    .step-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .code-block {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: #aaaaaa;
+      background: #0a0a0a;
+      border: 1px solid #1e1e1e;
+      border-radius: 6px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    .code-block:hover { border-color: #333; }
+
+    .copy-hint {
+      font-size: 10px;
+      color: #333;
+      white-space: nowrap;
+      font-family: var(--sans);
+    }
+
+    .code-block:hover .copy-hint { color: var(--muted); }
+
+    /* ── Features ── */
+    .features {
+      border-top: 1px solid var(--border);
+      background: #0a0a0a;
+      padding: 80px 40px;
+    }
+
+    .features-inner {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 40px;
+    }
+
+    .feature {
+      background: #0d0d0d;
+      padding: 28px 24px;
+    }
+
+    .feature-icon {
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+
+    .feature-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    .feature-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ── Specs ── */
+    .specs {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 80px 40px;
+    }
+
+    .specs-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      margin-top: 40px;
+    }
+
+    .spec-group-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .spec-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #161616;
+      font-size: 13px;
+    }
+
+    .spec-key { color: var(--muted); }
+    .spec-val {
+      font-family: var(--mono);
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      max-width: 100%;
+    }
+
+    .footer-left {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .footer-right {
+      display: flex;
+      gap: 20px;
+    }
+
+    .footer-right a {
+      font-size: 13px;
+      color: var(--muted);
+      transition: color 0.15s;
+    }
+
+    .footer-right a:hover {
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    @media (max-width: 600px) {
+      nav { padding: 0 20px; }
+      .hero { padding: 60px 20px 48px; }
+      .specs-grid { grid-template-columns: 1fr; }
+      footer { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-left">
+    <span class="nav-logo">sentinel</span>
+    <span class="nav-version">v1.0.0</span>
+  </div>
+  <ul class="nav-links">
+    <li><a href="#install">Install</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#specs">Specs</a></li>
+    <li><a href="https://github.com/noahmoussa2011-pixel/sentinel" target="_blank">GitHub</a></li>
+  </ul>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-tag">open source · gtk4 · python</div>
+  <h1>System monitoring<br>that stays out of your way.</h1>
+  <p class="hero-desc">
+    Sentinel is a lightweight Linux system monitor. Live graphs, per-core CPU tracking,
+    a full process manager, disk and network I/O — all in a clean GTK4 interface.
+    No Electron. No web stack. No nonsense.
+  </p>
+  <div class="hero-actions">
+    <a class="btn-primary" href="https://github.com/noahmoussa2011-pixel/sentinel/releases/download/v1.0.0/sentinel_1.0.0_all.deb" download>
+      ↓ Download .deb
+    </a>
+    <a class="btn-secondary" href="https://github.com/noahmoussa2011-pixel/sentinel" target="_blank">
+      View source
+    </a>
+  </div>
+  <p class="install-hint">
+    or install: <code>sudo dpkg -i sentinel_1.0.0_all.deb</code>
+  </p>
+</section>
+
+<!-- Screenshots -->
+<section class="screenshots">
+  <p class="screenshots-label">Screenshots</p>
+  <div class="screenshot-tabs">
+    <button class="tab-btn active" onclick="showTab('dashboard', this)">Dashboard</button>
+    <button class="tab-btn" onclick="showTab('processes', this)">Processes</button>
+    <button class="tab-btn" onclick="showTab('memory', this)">Memory</button>
+    <button class="tab-btn" onclick="showTab('network', this)">Network</button>
+    <button class="tab-btn" onclick="showTab('settings', this)">Settings</button>
+  </div>
+  <div class="screenshot-wrap">
+    <img id="ss-dashboard" class="screenshot-img active" src="screenshots/dashboard.jpg" alt="Sentinel Dashboard">
+    <img id="ss-processes" class="screenshot-img" src="screenshots/processes.jpg" alt="Sentinel Processes">
+    <img id="ss-memory"    class="screenshot-img" src="screenshots/memory.jpg"    alt="Sentinel Memory">
+    <img id="ss-network"   class="screenshot-img" src="screenshots/network.jpg"   alt="Sentinel Network">
+    <img id="ss-settings"  class="screenshot-img" src="screenshots/settings.jpg"  alt="Sentinel Settings">
+  </div>
+</section>
+
+<!-- Install -->
+<section class="install" id="install">
+  <div class="section-label">Installation</div>
+  <h2>Up and running in 60 seconds.</h2>
+  <p class="section-desc">Works on any Debian or Ubuntu based distro. ARM64 and amd64.</p>
+
+  <div class="install-steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-body">
+        <div class="step-title">Download the package</div>
+        <div class="code-block" onclick="copyCode(this)">
+          <span>wget https://github.com/noahmoussa2011-pixel/sentinel/releases/download/v1.0.0/sentinel_1.0.0_all.deb</span>
+          <span class="copy-hint">click to copy</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-body">
+        <div class="step-title">Install dependencies</div>
+        <div class="code-block" onclick="copyCode(this)">
+          <span>sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-4.0 python3-psutil</span>
+          <span class="copy-hint">click to copy</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-body">
+        <div class="step-title">Install Sentinel</div>
+        <div class="code-block" onclick="copyCode(this)">
+          <span>sudo dpkg -i sentinel_1.0.0_all.deb</span>
+          <span class="copy-hint">click to copy</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">04</div>
+      <div class="step-body">
+        <div class="step-title">Launch</div>
+        <div class="code-block" onclick="copyCode(this)">
+          <span>sentinel</span>
+          <span class="copy-hint">click to copy</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="features" id="features">
+  <div class="features-inner">
+    <div class="section-label">Features</div>
+    <h2>Everything you actually need.</h2>
+    <div class="features-grid">
+      <div class="feature">
+        <div class="feature-icon">▤</div>
+        <div class="feature-title">Live Dashboard</div>
+        <div class="feature-desc">CPU, RAM, swap, disk I/O, network and uptime — all on one screen, updating every second.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">◫</div>
+        <div class="feature-title">Per-Core CPU</div>
+        <div class="feature-desc">Individual usage bar for every core. Scrolling history graph with configurable time window.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">◈</div>
+        <div class="feature-title">Memory Breakdown</div>
+        <div class="feature-desc">Used, cached, buffers and free — shown as live bars. Swap tracking included.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⬡</div>
+        <div class="feature-title">Process Manager</div>
+        <div class="feature-desc">Full process list sorted by CPU. Search by name or PID. Select a row and hit End Task to kill it.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">↑↓</div>
+        <div class="feature-title">Network Monitor</div>
+        <div class="feature-desc">Upload and download speed with live graph. Interface info, IPs, and session totals.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⊟</div>
+        <div class="feature-title">Disk I/O</div>
+        <div class="feature-desc">Read and write speeds per second. Partition usage bars for every mounted filesystem.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Specs -->
+<section class="specs" id="specs">
+  <div class="section-label">Technical</div>
+  <h2>What it's built with.</h2>
+  <div class="specs-grid">
+    <div>
+      <div class="spec-group-title">Stack</div>
+      <div class="spec-row"><span class="spec-key">Language</span><span class="spec-val">Python 3</span></div>
+      <div class="spec-row"><span class="spec-key">UI toolkit</span><span class="spec-val">GTK 4</span></div>
+      <div class="spec-row"><span class="spec-key">Bindings</span><span class="spec-val">PyGObject</span></div>
+      <div class="spec-row"><span class="spec-key">System data</span><span class="spec-val">psutil</span></div>
+      <div class="spec-row"><span class="spec-key">Graphics</span><span class="spec-val">Cairo (DrawingArea)</span></div>
+    </div>
+    <div>
+      <div class="spec-group-title">Package</div>
+      <div class="spec-row"><span class="spec-key">Format</span><span class="spec-val">.deb</span></div>
+      <div class="spec-row"><span class="spec-key">Architecture</span><span class="spec-val">all (arm64, amd64)</span></div>
+      <div class="spec-row"><span class="spec-key">Version</span><span class="spec-val">1.0.0</span></div>
+      <div class="spec-row"><span class="spec-key">License</span><span class="spec-val">MIT</span></div>
+      <div class="spec-row"><span class="spec-key">Distros</span><span class="spec-val">Debian, Ubuntu, derivatives</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-left">sentinel v1.0.0 — MIT license</div>
+  <div class="footer-right">
+    <a href="https://github.com/noahmoussa2011-pixel/sentinel" target="_blank">GitHub</a>
+    <a href="https://github.com/noahmoussa2011-pixel/sentinel/issues" target="_blank">Issues</a>
+    <a href="https://github.com/noahmoussa2011-pixel/sentinel/releases" target="_blank">Releases</a>
+  </div>
+</footer>
+
+<script>
+  function showTab(name, btn) {
+    document.querySelectorAll('.screenshot-img').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('ss-' + name).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function copyCode(el) {
+    const text = el.querySelector('span').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      const hint = el.querySelector('.copy-hint');
+      hint.innerText = 'copied!';
+      setTimeout(() => hint.innerText = 'click to copy', 1500);
+    });
+  }
+</script>
+
+</body>
+</html>
